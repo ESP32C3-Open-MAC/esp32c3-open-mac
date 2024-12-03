@@ -17,3 +17,6 @@ default = []
 
 [build-dependencies]
 bindgen = "0.69.4"
+
+[profile.release]
+panic = 'abort'

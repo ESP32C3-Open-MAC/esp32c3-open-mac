@@ -6,7 +6,7 @@
 
 static const char* TAG = "hwinit";
 
-#define IC_MAC_INIT_REGISTER _MMIO_DWORD(0x3ff73cb8)
+#define IC_MAC_INIT_REGISTER _MMIO_DWORD(0x60033ca0)
 
 
 // Closed source symbols:
@@ -28,7 +28,7 @@ void mutex_lock_wraper(void *);
 void mutex_unlock_wraper(void *);
 extern void* g_ic;
 extern volatile chm* g_chm;
-extern uint32_t g_wifi_mac_time_delta;
+// extern uint32_t g_wifi_mac_time_delta;
 extern void* g_wifi_nvs;
 extern void* g_wifi_global_lock;
 
@@ -57,28 +57,28 @@ esp_err_t _do_wifi_start_openmac(wifi_mode_t mode) {
     wifi_station_start_openmac();
     return ESP_OK;
 }
-void esp_wifi_internal_update_mac_time_openmac(uint32_t diff) {
-    g_wifi_mac_time_delta += diff;
-}
-static inline void phy_update_wifi_mac_time(bool en_clock_stopped, int64_t now)
-{
-    static uint32_t s_common_clock_disable_time = 0;
+// void esp_wifi_internal_update_mac_time_openmac(uint32_t diff) {
+//     g_wifi_mac_time_delta += diff;
+// }
+// static inline void phy_update_wifi_mac_time(bool en_clock_stopped, int64_t now)
+// {
+//     static uint32_t s_common_clock_disable_time = 0;
 
-    if (en_clock_stopped) {
-        s_common_clock_disable_time = (uint32_t)now;
-    } else {
-        if (s_common_clock_disable_time) {
-            uint32_t diff = (uint64_t)now - s_common_clock_disable_time;
-            esp_wifi_internal_update_mac_time_openmac(diff);
-            s_common_clock_disable_time = 0;
-        }
-    }
-}
+//     if (en_clock_stopped) {
+//         s_common_clock_disable_time = (uint32_t)now;
+//     } else {
+//         if (s_common_clock_disable_time) {
+//             uint32_t diff = (uint64_t)now - s_common_clock_disable_time;
+//             esp_wifi_internal_update_mac_time_openmac(diff);
+//             s_common_clock_disable_time = 0;
+//         }
+//     }
+// }
 void esp_phy_enable_openmac() {
     // setting the time is only required on the ESP32
     int64_t phy_timestamp = esp_timer_get_time();
     // effectively a no-op
-    phy_update_wifi_mac_time(false, phy_timestamp);
+    // phy_update_wifi_mac_time(false, phy_timestamp);
 
     esp_phy_common_clock_enable();
 
@@ -86,7 +86,7 @@ void esp_phy_enable_openmac() {
     esp_phy_load_cal_and_init();
 
     // setting coex prio is only required on ESP32
-    coex_bt_high_prio();
+    // coex_bt_high_prio();
 }
 
 // [[openmac-coverage:implemented]]

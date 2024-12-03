@@ -7,7 +7,7 @@
 
 #include "soc/soc.h"
 #include "soc/periph_defs.h"
-#include "esp32/rom/ets_sys.h"
+#include "esp32c3/rom/ets_sys.h"
 
 #include "nvs_flash.h"
 #include "string.h"
@@ -38,51 +38,62 @@ inline uint32_t read_register(uint32_t address) {
 // So for example, if the MAC_TX_PLCP0 for slot 0 is at 0x3ff73d20
 // then the MAC_TX_PLCP0 for slot 1 will be at 0x3ff73d20 - 2 * 4 = 0x3ff73d18
 
-#define MAC_TX_PLCP0_BASE _MMIO_ADDR(0x3ff73d20)
+#define MAC_TX_PLCP0_BASE _MMIO_ADDR(0x60033d08)
 #define MAC_TX_PLCP0_OS (-2)
 
-#define WIFI_TX_CONFIG_BASE _MMIO_ADDR(0x3ff73d1c)
+#define WIFI_TX_CONFIG_BASE _MMIO_ADDR(0x60033d04)
 #define WIFI_TX_CONFIG_OS (-2)
 
 
-#define MAC_TX_PLCP1_BASE _MMIO_ADDR(0x3ff74258)
+#define MAC_TX_PLCP1_BASE _MMIO_ADDR(0x600342f8)
 #define MAC_TX_PLCP1_OS (-0xf)
 
-#define MAC_TX_PLCP2_BASE _MMIO_ADDR(0x3ff7425c)
+#define MAC_TX_PLCP2_BASE _MMIO_ADDR(0x600342fc)
 #define MAC_TX_PLCP2_OS (-0xf)
 
-#define MAC_TX_DURATION_BASE _MMIO_ADDR(0x3ff74268)
+#define MAC_TX_DURATION_BASE _MMIO_ADDR(0x60034318)
 #define MAC_TX_DURATION_OS (-0xf)
 
-#define MAC_TX_HT_SIG_BASE _MMIO_ADDR(0x3ff74260)
+#define MAC_TX_HT_SIG_BASE _MMIO_ADDR(0x60034310)
 #define MAC_TX_HT_SIG_OS (-0xf)
 
-#define MAC_TX_HT_UNKNOWN_BASE _MMIO_ADDR(0x3ff74264)
+#define MAC_TX_HT_UNKNOWN_BASE _MMIO_ADDR(0x60034314)
 #define MAC_TX_HT_UNKNOWN_OS (-0xf)
 
-#define WIFI_DMA_INT_STATUS _MMIO_DWORD(0x3ff73c48)
-#define WIFI_DMA_INT_CLR _MMIO_DWORD(0x3ff73c4c)
+#define WIFI_DMA_INT_STATUS _MMIO_DWORD(0x60033c3c)
+#define WIFI_DMA_INT_CLR _MMIO_DWORD(0x60033c40)
 
-#define WIFI_MAC_BITMASK_084 _MMIO_DWORD(0x3ff73084)
-#define WIFI_NEXT_RX_DSCR _MMIO_DWORD(0x3ff7308c)
-#define WIFI_LAST_RX_DSCR _MMIO_DWORD(0x3ff73090)
-#define WIFI_BASE_RX_DSCR _MMIO_DWORD(0x3ff73088)
+#define WIFI_MAC_BITMASK_084 _MMIO_DWORD(0x60033084)
+#define WIFI_NEXT_RX_DSCR _MMIO_DWORD(0x6003308c)
+#define WIFI_LAST_RX_DSCR _MMIO_DWORD(0x60033090)
+#define WIFI_BASE_RX_DSCR _MMIO_DWORD(0x60033088)
 
-#define WIFI_TXQ_GET_STATE_COMPLETE _MMIO_DWORD(0x3ff73cc8)
-#define WIFI_TXQ_CLR_STATE_COMPLETE _MMIO_DWORD(0x3ff73cc4)
+#define WIFI_TXQ_GET_STATE_COMPLETE _MMIO_DWORD(0x60033cb0)
+#define WIFI_TXQ_CLR_STATE_COMPLETE _MMIO_DWORD(0x60033cac)
 
 // Collision or timeout
-#define WIFI_TXQ_GET_STATE_ERROR _MMIO_DWORD(0x3ff73ccc0)
-#define WIFI_TXQ_CLR_STATE_ERROR _MMIO_DWORD(0x3ff73ccbc)
+#define WIFI_TXQ_GET_STATE_ERROR _MMIO_DWORD(0x60033ca8)
+#define WIFI_TXQ_CLR_STATE_ERROR _MMIO_DWORD(0x60033ca4)
 
 
-#define WIFI_MAC_ADDR_SLOT_0 0x3ff73040
-#define WIFI_MAC_ADDR_ACK_ENABLE_SLOT_0 0x3ff73064
+#define WIFI_MAC_ADDR_SLOT_0 0x60033040
+#define WIFI_MAC_ADDR_ACK_ENABLE_SLOT_0 0x60033064
 
-#define WIFI_BSSID_FILTER_ADDR_SLOT_0 _MMIO_ADDR(0x3ff73000)
+#define WIFI_BSSID_FILTER_ADDR_SLOT_0 _MMIO_ADDR(0x60033000)
 
 
-#define MAC_CTRL_REG _MMIO_DWORD(0x3ff73cb8)
+#define MAC_CTRL_REG _MMIO_DWORD(0x60033ca0)
+
+// Intererupt registers
+#define INTR_SRC_MAC 0x600c2000
+#define INTR_SRC_PWR 0x600c2008
+#define INTR_ENABLE_REG 0x600c2104 // Writing a 1 to corresponding bit enables and writing 0 disables
+#define INTR_STATUS_REG 0x600c00F8
+
+#define WIFI_INTR_NUMBER 1
+#define SYSTICK_INTR_NUMBER 7 // Tick 
+#define TIMER_ALARM_NUMBER 3
+#define TASK_WDT_NUMBER 9
 
 typedef enum {
 	RX_ENTRY,
@@ -250,10 +261,10 @@ static void change_channel_to(uint8_t channel) {
 	}
 	// but not actually
 	deinit_mac();
-	chip_v7_set_chan_nomac(channel, 0);
-	disable_wifi_agc();
+	chip_v7_set_chan(channel, 0);
+	rom_disable_wifi_agc();
 	init_mac();
-	enable_wifi_agc();
+	rom_enable_wifi_agc();
 }
 
 // TODO if we try to TX packets before taking over, we don't get the interrupt and
@@ -310,19 +321,43 @@ void IRAM_ATTR wifi_interrupt_handler(void* args) {
 	}
 }
 
-void setup_interrupt() {
-	// See the documentation of intr_matrix_set in esp-idf/components/esp_rom/include/esp32s3/rom/ets_sys.h
-	intr_matrix_set(0, ETS_WIFI_MAC_INTR_SOURCE, ETS_WMAC_INUM);
+// void setup_interrupt() {
+// 	// See the documentation of intr_matrix_set in esp-idf/components/esp_rom/include/esp32s3/rom/ets_sys.h
+// 	intr_matrix_set(0, ETS_WIFI_MAC_INTR_SOURCE, ETS_WMAC_INUM);
 	
-	// Wait for interrupt to be set, so we can replace it
-	while (_xt_interrupt_table[ETS_WMAC_INUM*portNUM_PROCESSORS+xPortGetCoreID()].handler == &xt_unhandled_interrupt) {
-		vTaskDelay(100 / portTICK_PERIOD_MS);
-		ESP_LOGW(TAG, "Waiting for interrupt to become set");
-	}
+// 	// Wait for interrupt to be set, so we can replace it
+// 	while (_xt_interrupt_table[ETS_WMAC_INUM*portNUM_PROCESSORS+xPortGetCoreID()].handler == &xt_unhandled_interrupt) {
+// 		vTaskDelay(100 / portTICK_PERIOD_MS);
+// 		ESP_LOGW(TAG, "Waiting for interrupt to become set");
+// 	}
 
-	// Replace the existing wDev_ProcessFiq interrupt
-	xt_set_interrupt_handler(ETS_WMAC_INUM, wifi_interrupt_handler, NULL);
-	xt_ints_on(1 << ETS_WMAC_INUM);
+// 	// Replace the existing wDev_ProcessFiq interrupt
+// 	xt_set_interrupt_handler(ETS_WMAC_INUM, wifi_interrupt_handler, NULL);
+// 	xt_ints_on(1 << ETS_WMAC_INUM);
+// }
+
+void setup_interrupt(){
+    // This setup works perfectly "sometimes"
+
+    ESP_LOGI("setup_intr", "Clearing existing interrupts");
+    // ic_set_interrupt_handler() in ghidra
+    // Mask out power interrupt and the MAC interrupt sources (temporarily)
+    // From decompilation of intr_matrix_set. Both are mapped to CPU interrupt number 1
+    // Disable the wifi CPU interrupt and renable after setting the handler
+    REG_WRITE(INTR_SRC_MAC, 0);
+    REG_WRITE(INTR_SRC_PWR, 0);
+
+    // Disable all interrupt sources. A bit hacky but works
+    uint32_t value = REG_READ(INTR_ENABLE_REG);
+    REG_WRITE(INTR_ENABLE_REG, 0);
+    intr_handler_set(WIFI_INTR_NUMBER, (intr_handler_t)wifi_interrupt_handler, 0);
+    REG_WRITE(INTR_ENABLE_REG, value);
+
+    // Unmask the interrupt source again. So called "routing"
+    REG_WRITE(INTR_SRC_MAC, WIFI_INTR_NUMBER);
+    // Mask this interrupt for now. Results in a constant interval interrupt at what seems to be the TBTT
+    // REG_WRITE(INTR_SRC_PWR, WIFI_INTR_NUMBER);
+
 }
 
 void print_rx_chain(dma_list_item* item) {

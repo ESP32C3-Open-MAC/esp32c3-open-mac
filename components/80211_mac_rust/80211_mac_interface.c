@@ -7,6 +7,7 @@
 #include "80211_mac_interface.h"
 
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "freertos/queue.h"
 
 #define IEEE80211_MAX_FRAME_LEN   (2352)
@@ -220,5 +221,8 @@ void c_transmit_data_frame(uint8_t* frame, size_t len) {
 
 void c_mac_task() {
 	interface_init();
-	rust_mac_task();
+	while(1){
+		vTaskDelay(500/portTICK_PERIOD_MS);
+	}
+	// rust_mac_task();
 }

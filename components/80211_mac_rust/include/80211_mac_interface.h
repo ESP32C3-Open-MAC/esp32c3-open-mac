@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#define CONFIG_IDF_TARGET_ESP32 1
+#define CONFIG_IDF_TARGET_ESP32C3 1
 
 /** @brief Received packet radio metadata header, this is the common header at the beginning of all promiscuous mode RX callback buffers */
 typedef struct {

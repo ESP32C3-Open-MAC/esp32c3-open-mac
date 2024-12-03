@@ -22,7 +22,7 @@ fn run_bindgen(target: &str, out_dir: &Path) {
         "riscv32imc-esp-espidf" => {
             builder = builder.clang_arg("--target=riscv32");
             builder = builder.use_core();
-            builder = builder.ctypes_prefix("crate::ffi");
+            // builder = builder.ctypes_prefix("crate::ffi");
         }
         "xtensa-esp32-none-elf" => {
             // Make sure that LLVM_CONFIG_PATH has been set to point to the

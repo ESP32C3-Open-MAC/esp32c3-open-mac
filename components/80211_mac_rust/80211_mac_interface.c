@@ -224,5 +224,5 @@ void c_mac_task() {
 	while(1){
 		vTaskDelay(500/portTICK_PERIOD_MS);
 	}
-	// rust_mac_task();
+	rust_mac_task();
 }

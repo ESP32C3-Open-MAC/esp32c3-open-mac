@@ -3,51 +3,83 @@ idf_component_register(
     INCLUDE_DIRS "include"
 )
 
-# Define the Rust target for the Xtensa and RISC-V architecture
-# if (CONFIG_IDF_TARGET_ARCH_XTENSA)
-#     set(RUST_CARGO_TOOLCHAIN "+esp")
-#     set(RUST_CARGO_TARGET "xtensa-${IDF_TARGET}-none-elf")
-# elseif (CONFIG_IDF_TARGET_ARCH_RISCV)
-#     set(RUST_CARGO_TOOLCHAIN "+nightly")
-#     set(RUST_CARGO_TARGET "riscv32imc-esp-espidf")
-# else()
-#     message(FATAL_ERROR "Architecture currently not supported")
-# endif()
+if(CONFIG_IDF_TARGET_ARCH_RISCV)
+    if (CONFIG_IDF_TARGET_ESP32C6 OR CONFIG_IDF_TARGET_ESP32C5 OR CONFIG_IDF_TARGET_ESP32H2)
+        set(RUST_TARGET "riscv32imac-esp-espidf")
+    else ()
+        set(RUST_TARGET "riscv32imc-unknown-none-elf")
+    endif()
+elseif(CONFIG_IDF_TARGET_ESP32)
+    set(RUST_TARGET "xtensa-esp32-espidf")
+elseif(CONFIG_IDF_TARGET_ESP32S2)
+    set(RUST_TARGET "xtensa-esp32s2-espidf")
+elseif(CONFIG_IDF_TARGET_ESP32S3)
+    set(RUST_TARGET "xtensa-esp32s3-espidf")
+else()
+    message(FATAL_ERROR "Unsupported target ${CONFIG_IDF_TARGET}")
+endif()
 
-# # Set the flags for cargo build
-# set(CARGO_BUILD_FLAGS "-Zbuild-std=core")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CARGO_BUILD_TYPE "debug")
+    set(CARGO_BUILD_ARG "")
+else()
+    set(CARGO_BUILD_TYPE "release")
+    set(CARGO_BUILD_ARG "--release")
+endif()
 
-# # Set directories and target
-# set(RUST_PROJECT_DIR "${CMAKE_CURRENT_LIST_DIR}/rust_crate")
-# set(RUST_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}")
-# set(RUST_TARGET_DIR "${RUST_BUILD_DIR}/target")
-# set(RUST_STATIC_LIBRARY "${RUST_TARGET_DIR}/${RUST_CARGO_TARGET}/release/librust_crate.a")
+# set(CARGO_BUILD_STD_ARG -Zbuild-std=std,panic_abort)
 
-# # ExternalProject_Add for building the Rust project
-# ExternalProject_Add(
-#     rust_crate_target
-#     PREFIX "${RUST_PROJECT_DIR}"
-#     DOWNLOAD_COMMAND ""
-#     CONFIGURE_COMMAND ""
-#     BUILD_COMMAND ${CMAKE_COMMAND} -E env
-#         CARGO_BUILD_TARGET=${RUST_CARGO_TARGET}
-#         CARGO_BUILD_TARGET_DIR=${RUST_TARGET_DIR}
-#         cargo ${RUST_CARGO_TOOLCHAIN} build --release ${CARGO_BUILD_FLAGS}# -Zbuild-std-features=compiler-builtins-weak-intrinsics
-#     BUILD_ALWAYS TRUE
-#     INSTALL_COMMAND cmake -E echo "Skipping install step."
-#     WORKING_DIRECTORY ${RUST_PROJECT_DIR}
-#     TMP_DIR "${RUST_BUILD_DIR}/tmp"
-#     STAMP_DIR "${RUST_BUILD_DIR}/stamp"
-#     DOWNLOAD_DIR "${RUST_BUILD_DIR}"
-#     SOURCE_DIR "${RUST_PROJECT_DIR}"
-#     BINARY_DIR "${RUST_PROJECT_DIR}"
-#     INSTALL_DIR "${RUST_BUILD_DIR}"
-#     BUILD_BYPRODUCTS "${RUST_STATIC_LIBRARY}"
-# )
+if(IDF_VERSION_MAJOR GREATER "4")
+set(ESP_RUSTFLAGS "--cfg espidf_time64")
+endif()
 
-# # Add prebuilt Rust library
-# add_prebuilt_library(rust_crate_lib "${RUST_STATIC_LIBRARY}" REQUIRES "")
+set(CARGO_PROJECT_DIR "${CMAKE_CURRENT_LIST_DIR}/rust_crate")
+set(CARGO_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+set(CARGO_TARGET_DIR "${CARGO_BUILD_DIR}/target")
 
-# # Add dependencies and link Rust library
-# add_dependencies(${COMPONENT_LIB} rust_crate_target)
-# target_link_libraries(${COMPONENT_LIB} PUBLIC rust_crate_lib)
+set(RUST_INCLUDE_DIR "${CARGO_TARGET_DIR}")
+set(RUST_STATIC_LIBRARY "${CARGO_TARGET_DIR}/${RUST_TARGET}/${CARGO_BUILD_TYPE}/librust_crate.a")
+
+# if this component uses CBindGen to generate a C header, uncomment the lines below and adjust the header name accordingly
+#set(RUST_INCLUDE_HEADER "${RUST_INCLUDE_DIR}/RustApi.h")
+#set_source_files_properties("${RUST_INCLUDE_HEADER}" PROPERTIES GENERATED true)
+
+idf_build_get_property(sdkconfig SDKCONFIG)
+idf_build_get_property(idf_path IDF_PATH)
+
+ExternalProject_Add(
+    rust_crate_target
+    PREFIX "${CARGO_PROJECT_DIR}"
+    DOWNLOAD_COMMAND ""
+    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env
+        cargo clean --target ${RUST_TARGET} --target-dir ${CARGO_TARGET_DIR}
+    USES_TERMINAL_BUILD true
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env
+        CARGO_CMAKE_BUILD_INCLUDES=$<TARGET_PROPERTY:${COMPONENT_LIB},INCLUDE_DIRECTORIES>
+        CARGO_CMAKE_BUILD_LINK_LIBRARIES=$<TARGET_PROPERTY:${COMPONENT_LIB},LINK_LIBRARIES>
+        CARGO_CMAKE_BUILD_SDKCONFIG=${sdkconfig}
+        CARGO_CMAKE_BUILD_ESP_IDF=${idf_path}
+        CARGO_CMAKE_BUILD_COMPILER=${CMAKE_C_COMPILER}
+        RUSTFLAGS=${ESP_RUSTFLAGS}
+        MCU=${CONFIG_IDF_TARGET}
+        cargo build --target ${RUST_TARGET} --target-dir ${CARGO_TARGET_DIR} ${CARGO_BUILD_ARG} ${CARGO_BUILD_STD_ARG}
+    INSTALL_COMMAND ""
+    BUILD_ALWAYS TRUE
+    TMP_DIR "${CARGO_BUILD_DIR}/tmp"
+    STAMP_DIR "${CARGO_BUILD_DIR}/stamp"
+    DOWNLOAD_DIR "${CARGO_BUILD_DIR}"
+    SOURCE_DIR "${CARGO_PROJECT_DIR}"
+    BINARY_DIR "${CARGO_PROJECT_DIR}"
+    INSTALL_DIR "${CARGO_BUILD_DIR}"
+    BUILD_BYPRODUCTS
+        "${RUST_INCLUDE_HEADER}"
+        "${RUST_STATIC_LIBRARY}"
+)
+
+
+# Add prebuilt Rust library
+add_prebuilt_library(rust_crate_lib "${RUST_STATIC_LIBRARY}" REQUIRES "")
+
+# Add dependencies and link Rust library
+add_dependencies(${COMPONENT_LIB} rust_crate_target)
+target_link_libraries(${COMPONENT_LIB} PUBLIC rust_crate_lib)

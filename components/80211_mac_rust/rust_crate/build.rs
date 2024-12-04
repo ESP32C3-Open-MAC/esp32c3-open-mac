@@ -19,7 +19,7 @@ fn run_bindgen(target: &str, out_dir: &Path) {
         .rustified_enum("rs_event_type_t")
         .allowlist_item("dma_list_item");
     match target {
-        "riscv32imc-esp-espidf" => {
+        "riscv32imc-unknown-none-elf" => {
             builder = builder.clang_arg("--target=riscv32");
             builder = builder.use_core();
             // builder = builder.ctypes_prefix("crate::ffi");

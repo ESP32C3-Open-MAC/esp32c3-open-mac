@@ -164,16 +164,6 @@ void hwinit() {
 	cfg.ampdu_tx_enable = false;
 	cfg.amsdu_tx_enable = false;
 	cfg.nvs_enable = false;
-    ESP_LOGW(TAG, "calling esp_wifi_init");
-	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-	// esp_phy_common_clock_enable();
-	ESP_LOGW(TAG, "done esp_wifi_init");
-
-	ESP_LOGW(TAG, "Starting wifi_hardware task, running on %d", xPortGetCoreID());
-	ESP_LOGW(TAG, "calling esp_wifi_set_mode");
-	ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-	ESP_LOGW(TAG, "done esp_wifi_set_mode");
-
 	ESP_LOGW(TAG, "calling esp_wifi_start");
 	wifi_start_process_openmac();
 	ESP_LOGW(TAG, "done esp_wifi_start");

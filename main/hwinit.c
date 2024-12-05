@@ -147,6 +147,8 @@ void wifi_hw_start_openmac(wifi_mode_t mode) {
     hal_init();
     chip_enable();
     pm_noise_check_enable();
+    // Enable RX
+    WIFI_MAC_BITMASK_084 |= 0x80000000;
 }
 
 void wifi_start_process_openmac() {

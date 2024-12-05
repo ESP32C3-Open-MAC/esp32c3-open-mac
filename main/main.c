@@ -12,9 +12,6 @@
 
 static const char* TAG = "main";
 
-#if (!(ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR == 0 && ESP_IDF_VERSION_PATCH == 1))
-#error "This project currently still uses the proprietary wifi library for initialization, this was only tested with ESP-IDF v5.0.1"
-#endif
 
 void app_main(void) {
 	// const char* actual_version_string = get_phy_version_str();

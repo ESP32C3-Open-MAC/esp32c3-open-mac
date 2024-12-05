@@ -12,7 +12,7 @@ static const char* TAG = "hwinit";
 // Closed source symbols:
 void wifi_hw_start(int a);
 void wifi_module_enable();
-void ic_mac_init();
+void hal_init();
 void chm_init(void* ptr);
 void ic_enable();
 void chip_enable();
@@ -144,7 +144,7 @@ void wifi_hw_start_openmac(wifi_mode_t mode) {
     wifi_reset_mac();
     ic_mac_init_openmac();
     chm_init(&g_ic);
-    ic_enable();
+    hal_init();
     chip_enable();
     pm_noise_check_enable();
 }

@@ -202,7 +202,7 @@ bool transmit_80211_frame(rs_smart_frame_t* frame) {
 	tx_item->has_data = 1;
 	tx_item->length = frame->payload_length;
 	tx_item->size = size_len;
-	tx_item->packet = frame->payload;
+	tx_item->packet = (wifi_promiscuous_pkt_openmac_t *)frame->payload;
 	tx_item->next = NULL;
 
 	WIFI_TX_CONFIG_BASE[WIFI_TX_CONFIG_OS*slot] = WIFI_TX_CONFIG_BASE[WIFI_TX_CONFIG_OS * slot] | 0xa;
@@ -314,7 +314,7 @@ void IRAM_ATTR wifi_interrupt_handler(void* args) {
 		queue_entry.content.rx.interrupt_received = cause;
 		// ESP_DRAM_LOGE("isr", "%08x", cause);
 		bool higher_prio_task_woken = false;
-		xQueueSendFromISR(hardware_event_queue, &queue_entry, &higher_prio_task_woken);
+		xQueueSendFromISR(hardware_event_queue, &queue_entry, (BaseType_t *)&higher_prio_task_woken);
 		if (higher_prio_task_woken) {
 			portYIELD_FROM_ISR();
 		}
@@ -386,7 +386,7 @@ void setup_rx_chain() {
 		item->size = 1600;
 		item->length = item->size;
 
-		uint8_t* packet = malloc(1600); // TODO verify that this does not need to be bigger
+		wifi_promiscuous_pkt_openmac_t* packet = malloc(1600); // TODO verify that this does not need to be bigger
 		item->packet = packet;
 		item->next = prev;
 		prev = item;

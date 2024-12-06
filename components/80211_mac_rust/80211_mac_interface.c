@@ -10,6 +10,8 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 
+#include "esp_log.h"
+
 #define IEEE80211_MAX_FRAME_LEN   (2352)
 
 // TODO check this is correct
@@ -39,6 +41,46 @@ static QueueHandle_t rust_mac_event_queue = NULL;
 smart_frame_tracker_t smart_frame_tracker_list[NUM_TX_SMART_FRAME_BUFFERS] = {{0}};
 mac_rx_frame_t mac_rx_frame_list[NUM_RX_BUFFERS] = {{0}};
 bool init_done = false;
+
+// Hand crafted 80211 packet. Currently only visible in airmon-ng
+uint8_t packet[] = {
+    0x08, 0x01, // frame control
+    0x00, 0x00, // duration/ID
+
+    // Replace with required MAC addresses
+    0x40, 0x9b, 0xcd, 0x25, 0x2a, 0xf8, // Receiver address
+    0x84, 0xf7, 0x03, 0x60, 0x81, 0x5c, // Transmitter address
+    0xc8, 0x15, 0x4e, 0xd4, 0x65, 0x1b, // Destination address
+
+    0x00, 0x00, // sequence control
+    0xaa, 0xaa, // SNAP
+    0x03, 0x00, 0x00, 0x00, // other LLC headers
+
+    0x08, 0x00,
+    // IPv4 header
+    0x45, //version :4 (obv) with IHL = 5
+    0x00, // DSCP and ECN
+    0x00, 0x21, // Total length (33 bytes), IPv4 Header + UDP Header + "Hello"
+    0x00, 0x00, // Identification and fragmentation data
+    0x00, 0x00, // Flags and fragment offset
+    0x05, // TTL
+    0x11, // Protocol type UDP 
+    0x33, 0x4a, // Header checksum
+    0xc0, 0xa8, 0x00, 0x7A, // Source IP address - Arbitrary IP address for the ESP-32
+    0xc0, 0xa8, 0x00, 0xb8, // Destination IP address - Laptop's IP address (assigned through DHCP by the router)
+
+    // UDP header - 8 bytes
+    0x1f, 0x45, // Source port - Both source and destination ports are random since it is UDP
+    0xf0, 0xf0, // Destination port
+    0x00, 0x0d, // Length
+    0x00, 0x00,  // Checksum - calculate using the pseudo ipv4 header
+    'h', 'e', 'l', 'l', 'o', // The message :)
+
+    // FCS
+    0x00, 0x00, 0x00, 0x00
+
+};
+
 
 void interface_init() {
 	// TODO remove hard-coded 30
@@ -221,8 +263,14 @@ void c_transmit_data_frame(uint8_t* frame, size_t len) {
 
 void c_mac_task() {
 	interface_init();
+	rs_change_channel(7);
+	vTaskDelay(100/portTICK_PERIOD_MS);
 	while(1){
-		vTaskDelay(500/portTICK_PERIOD_MS);
+		rs_smart_frame_t smart_frame = {
+			.payload = &packet[0],
+			.payload_length = sizeof(packet)
+		};
+		transmit_80211_frame(&smart_frame);
+		vTaskDelay(1000/portTICK_PERIOD_MS);
 	}
-	// rust_mac_task();
 }

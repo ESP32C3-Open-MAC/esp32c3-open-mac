@@ -523,9 +523,9 @@ void set_bssid_filter(uint8_t slot, const uint8_t* addr) {
 void set_some_kind_of_rx_policy(uint8_t slot, bool enable) {
 	assert(slot <= 1);
 	if (enable) {
-		*(volatile uint32_t*)(0x3ff730d8 + 4*slot) |= 0x110;
+		*(volatile uint32_t*)(0x600330d8 + 4*slot) |= 0x110;
 	} else {
-		*(volatile uint32_t*)(0x3ff730d8 + 4*slot) &= ~0x110;
+		*(volatile uint32_t*)(0x600330d8 + 4*slot) &= ~0x110;
 	}
 }
 

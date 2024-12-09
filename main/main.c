@@ -8,7 +8,7 @@
 #include "esp_phy_init.h" // for get_phy_version_str
 
 #include "hardware.h"
-#include "mac.h"
+#include "80211_mac.h"
 
 static const char* TAG = "main";
 
@@ -24,8 +24,8 @@ void app_main(void) {
 	// 	abort();
 	// }
 
-	esp_netif_init();
 	// Low priority numbers denote low priority tasks.
 	xTaskCreatePinnedToCore(&wifi_hardware_task, "wifi_hardware", 4096, NULL, /*prio*/ 23, NULL, /*core*/ 0);
-	openmac_netif_start();
+
+	xTaskCreatePinnedToCore(&mac_task, "wifi_mac", 4096, NULL, /*prio*/ 22, NULL, /*core*/ 0);
 }

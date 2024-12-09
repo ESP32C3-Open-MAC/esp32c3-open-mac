@@ -9,14 +9,12 @@
 #include "soc/periph_defs.h"
 #include "esp32c3/rom/ets_sys.h"
 
-#include "nvs_flash.h"
 #include "string.h"
 
 #include "proprietary.h" // contains all symbols from the binary blobs we still need
 #include "hardware.h"
 #include "hwinit.h"
-
-#include "80211_mac_interface.h"
+#include "data_types.h"
 
 #define RX_BUFFER_AMOUNT 10
 
@@ -142,7 +140,7 @@ typedef struct {
 	struct {} __attribute__ ((aligned (4)));
 	dma_list_item dma;
 	
-	rs_smart_frame_t* frame;
+	smart_frame_t* frame;
 	bool in_use;
 } tx_hardware_slot_t;
 
@@ -163,7 +161,7 @@ void request_channel_change(uint8_t channel) {
 }
 
 
-bool transmit_80211_frame(rs_smart_frame_t* frame) {
+bool transmit_80211_frame(smart_frame_t* frame) {
 	uint32_t slot = 0;
 
 	// Find the first free TX slot
@@ -243,14 +241,15 @@ bool transmit_80211_frame(rs_smart_frame_t* frame) {
 }
 
 static void deinit_mac() {
-	MAC_CTRL_REG = MAC_CTRL_REG | 0x17ff;
-	while ((MAC_CTRL_REG & 0x2000) != 0) {
-		// nothing
-	}
+	// hal_mac_deinit() decompilation
+	MAC_CTRL_REG |=  0x00ff1000;
+	while ((MAC_CTRL_REG & 0x6000) != 0){}
+	ets_delay_us(5);
 }
 
 static void init_mac() {
-	MAC_CTRL_REG = MAC_CTRL_REG & 0xffffe800;
+	// hal_mac.o hal_mac_init() decompilation
+	MAC_CTRL_REG = MAC_CTRL_REG & 0xff00efff;
 }
 
 static void change_channel_to(uint8_t channel) {
@@ -551,8 +550,6 @@ void wifi_hardware_task(void* pvArguments) {
 		}
 	}
 
-	hardware_event_queue = xQueueCreate(RX_BUFFER_AMOUNT+10, sizeof(hardware_queue_entry_t));
-	assert(hardware_event_queue);
 	rx_queue_resources = xSemaphoreCreateCounting(RX_BUFFER_AMOUNT, RX_BUFFER_AMOUNT);
 	assert(rx_queue_resources);
 	tx_queue_resources = xSemaphoreCreateCounting(10, 10);
@@ -578,7 +575,6 @@ void wifi_hardware_task(void* pvArguments) {
 	// acking will only happen if the hardware puts the packet in an RX buffer
 
 	// We're ready now, start the MAC task
-	xTaskCreatePinnedToCore(&c_mac_task, "rs_wifi", 4096, NULL, 22, NULL, 0);
 	vTaskDelay(50 / portTICK_PERIOD_MS);
 	
 	

@@ -6,9 +6,6 @@
 
 static const char* TAG = "hwinit";
 
-#define IC_MAC_INIT_REGISTER _MMIO_DWORD(0x60033ca0)
-
-
 // Closed source symbols:
 void wifi_hw_start(int a);
 void wifi_module_enable();
